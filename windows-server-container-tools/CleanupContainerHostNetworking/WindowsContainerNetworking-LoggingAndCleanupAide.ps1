@@ -276,14 +276,26 @@ function CopyAllLogs
 
     ipconfig /allcompartments /all > $LogsPath"\ipconfig.txt"
 
-    if (Test-Path "C:\Windows\System32\vfpctrl.exe")
+
+
+    Try
+
     {
-        $allSwitches = Get-VMSwitch
+
+        Resolve-Path "C:\Windows\System32\vfpctrl.exe" -ErrorAction Stop | Out-Null
+
+        ($allSwitches = Get-VMSwitch) | FL * > $LogsPath"\GetVMSwitch.txt"
         foreach ($switch in $allSwitches)
         {
             GetAllPolicies -switchName $switch.Name > $LogsPath"\SwitchPolicies_$($switch.Name).txt"
         }
+
         Get-Service vfpext | FL * > $LogsPath"\vfpext.txt"
+
+    }
+    Catch [System.Management.Automation.ItemNotFoundException], [System.Management.Automation.CommandNotFoundException]
+    {
+        Write-Host "WARNING: Microsoft Hyper-V role is not installed or misconfigured" -ForegroundColor Yellow
     }
 
     # Get docker version
@@ -305,7 +317,11 @@ function CopyAllLogs
         Add-Content $LogsPath"\docker_network_inspect.txt" $addMe
     }
 
-    Get-VMSwitch | FL * > $LogsPath"\GetVMSwitch.txt"
+    
+    if ((Get-WindowsFeature -Name Hyper-V).Installed -and (Get-Command Get-VMSwitch -ErrorAction SilentlyContinue)){
+        Get-VMSwitch | FL * > $LogsPath"\GetVMSwitch.txt"
+    }
+
     Get-NetNat | FL * > $LogsPath"\GetNetNat.txt"
     Get-NetNatStaticMapping | FL *> $LogsPath"\GetNetNatStaticMapping.txt"
     Get-Service winnat | FL * > $LogsPath"\WinNat.txt"
